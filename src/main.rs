@@ -1,134 +1,171 @@
 use base64::{Engine as _, engine::general_purpose};
-use dialoguer::Select;
+use console::Term;
 use htmlescape;
-use std::{io, str::FromStr};
+use std::str::FromStr;
 use urlencoding::{decode, encode};
+mod select;
+use select::{Option, Select};
+use clap::Parser;
+
+#[derive(Parser)]
+struct Args {
+    tool: String,
+}
 
 fn main() {
-    let items = vec![
-        "Base64 Decode",
-        "Base64 Encode",
-        "URL Decode",
-        "URL Encode",
-        "HTML Unescape",
-        "HTML Escape",
-        "JWT Decode",
-        "Quit",
-    ];
-    let selection = Select::new()
-        .with_prompt("What do want to do?")
-        .default(0)
-        .items(&items)
-        .interact()
+    let args = Args::parse();
+    let select = Select {
+        options: vec![
+            Option {
+                message: "Base64 Decode",
+                arg_name: Some("base64_decode"),
+                handle: base_64_decode,
+            },
+            Option {
+                message: "Base64 Encode",
+                arg_name: Some("base64_encode"),
+                handle: base_64_encode,
+            },
+            Option {
+                message: "URL Decode",
+                arg_name: Some("url_decode"),
+                handle: url_decode,
+            },
+            Option {
+                message: "URL Encode",
+                arg_name: Some("url_encode"),
+                handle: url_encode,
+            },
+            Option {
+                message: "HTML Unescape",
+                arg_name: Some("html_unescape"),
+                handle: html_unescape,
+            },
+            Option {
+                message: "HTML Escape",
+                arg_name: Some("html_escape"),
+                handle: html_escape,
+            },
+            Option {
+                message: "JWT Decode",
+                arg_name: Some("jwt_decode"),
+                handle: jwt_decode,
+            },
+            Option {
+                message: "Quit",
+                arg_name: None,
+                handle: |_, _| {},
+            },
+        ],
+        message: "What do you want to do?",
+        args: args,
+        term: Term::stdout(),
+    };
+    let arg_selection = select.arg_match();
+    match arg_selection {
+        Some(option) => (option.handle)(&select.args, &select.term),
+        None => select.interact(),
+    }
+}
+
+fn base_64_decode(_a: &Args, t: &Term) {
+    t.write_line("Enter a Base64 encoded string to decode:")
         .unwrap();
-    match selection {
-        0 => base_64_decode(),
-        1 => base_64_encode(),
-        2 => url_decode(),
-        3 => url_encode(),
-        4 => html_unescape(),
-        5 => html_escape(),
-        6 => jwt_decode(),
-        _ => (),
-    }
-}
-
-fn base_64_decode() {
-    let mut input_string = String::new();
-    println!("Enter a Base64 encoded string to decode:");
-    io::stdin()
-        .read_line(&mut input_string)
-        .expect("Failed to read line");
-    let result = _base_64_decode(&mut input_string);
+    let input = t.read_line().unwrap();
+    let result = _base_64_decode(&input);
     match result {
-        Ok(result_str) => println!("Result: {result_str}"),
-        Err(err) => println!("{err}"),
+        Ok(result_str) => t
+            .write_line(format!("Result: {result_str}").as_str())
+            .unwrap(),
+        Err(err) => t.write_line(format!("{err}").as_str()).unwrap(),
     }
 }
 
-fn _base_64_decode(input: &mut String) -> Result<String, String> {
-    let result = general_purpose::STANDARD_NO_PAD.decode(input.trim_end());
+fn _base_64_decode(input: &str) -> Result<String, String> {
+    let result = general_purpose::STANDARD_NO_PAD.decode(input);
     match result {
         Ok(result_bytes) => match String::from_utf8(result_bytes) {
             Ok(result_str) => return Ok(result_str),
             Err(err) => Err(format!("Error converting bytes to string: {err}")),
         },
         Err(err) => return Err(format!("Error decoding Base64 string: {err}")),
-
     }
 }
 
-fn base_64_encode() {
-    let mut input_string = String::new();
-    println!("Enter a string to Base64 encode:");
-    io::stdin()
-        .read_line(&mut input_string)
-        .expect("Failed to read line");
-    let result = general_purpose::STANDARD_NO_PAD.encode(input_string.trim_end());
-    println!("Result: {result}");
+fn base_64_encode(_a: &Args, t: &Term) {
+    t.write_line("Enter a string to Base64 encode:").unwrap();
+    let input = t.read_line().unwrap();
+    let result = general_purpose::STANDARD_NO_PAD.encode(input);
+    t.write_line(format!("Result: {result}").as_str()).unwrap();
 }
 
-fn url_decode() {
-    let mut input_string = String::new();
-    println!("Enter a URL encoded string to decode:");
-    io::stdin()
-        .read_line(&mut input_string)
-        .expect("Failed to read line");
-    let result = decode(input_string.trim_end());
+fn url_decode(_a: &Args, t: &Term) {
+    t.write_line("Enter a URL encoded string to decode:")
+        .unwrap();
+    let input = t.read_line().unwrap();
+    let result = decode(input.as_str());
     match result {
-        Ok(result_str) => println!("Result: {result_str}"),
-        Err(err) => println!("Error decoding URL encoded string: {err}"),
+        Ok(result_str) => t
+            .write_line(format!("Result: {result_str}").as_str())
+            .unwrap(),
+        Err(err) => t
+            .write_line(format!("Error decoding URL encoded string: {err}").as_str())
+            .unwrap(),
     }
 }
 
-fn url_encode() {
-    let mut input_string = String::new();
-    println!("Enter a string to URL encode:");
-    io::stdin()
-        .read_line(&mut input_string)
-        .expect("Failed to read line");
-    let result = encode(input_string.trim_end());
-    println!("Result: {result}");
+fn url_encode(_a: &Args, t: &Term) {
+    t.write_line("Enter a string to URL encode:")
+        .expect("error wrting line to stdout");
+    let input = t.read_line().unwrap();
+    let result = encode(input.as_str());
+    t.write_line(format!("Result: {result}").as_str()).unwrap();
 }
 
-fn html_unescape() {
-    let mut input_string = String::new();
-    println!("Enter a HTML escaped string to unescape:");
-    io::stdin()
-        .read_line(&mut input_string)
-        .expect("Failed to read line");
-    let result = htmlescape::decode_html(input_string.as_str());
+fn html_unescape(_a: &Args, t: &Term) {
+    t.write_line("Enter a HTML escaped string to unescape:")
+        .expect("error wrting line to stdout");
+    let input = t.read_line().unwrap();
+    let result = htmlescape::decode_html(input.as_str());
     match result {
-        Ok(result_str) => println!("Result: {result_str}"),
-        Err(err) => println!("Error decoding HTML escaped string: {err:?}"),
+        Ok(result_str) => t
+            .write_line(format!("Result: {result_str}").as_str())
+            .unwrap(),
+        Err(err) => t
+            .write_line(format!("Error decoding HTML escaped string: {err:?}").as_str())
+            .unwrap(),
     }
 }
 
-fn html_escape() {
-    let mut input_string = String::new();
-    println!("Enter a string to HTML escape:");
-    io::stdin()
-        .read_line(&mut input_string)
-        .expect("Failed to read line");
-    let result = htmlescape::encode_attribute(input_string.as_str());
-    println!("Result: {result}");
+fn html_escape(_a: &Args, t: &Term) {
+    t.write_line("Enter a string to HTML escape:")
+        .expect("error wrting line to stdout");
+    let input = t.read_line().unwrap();
+    let result = htmlescape::encode_attribute(input.as_str());
+    t.write_line(format!("Result: {result}").as_str()).unwrap();
 }
 
-fn jwt_decode() {
-    let mut input_string = String::new();
-    println!("Enter a JWT token to decode:");
-    io::stdin()
-        .read_line(&mut input_string)
-        .expect("Failed to read line");
-    let jwt_parts: Vec<&str> = input_string.split(".").collect();
+fn jwt_decode(_a: &Args, t: &Term) {
+    t.write_line("Enter a JWT token to decode:")
+        .expect("error wrting line to stdout");
+    let input = t.read_line().unwrap();
+    let jwt_parts: Vec<&str> = input.split(".").collect();
     let header = _base_64_decode(&mut String::from_str(jwt_parts[0]).unwrap());
     let payload = _base_64_decode(&mut String::from_str(jwt_parts[1]).unwrap());
     match header {
-        Ok(header_str) => println!("Header Data: {header_str}"),
-        Err(err) => println!("Error decoding header: {err}"),
+        Ok(header_str) => t
+            .write_line(format!("Header Data: {header_str}").as_str())
+            .unwrap(),
+        Err(err) => t
+            .write_line(format!("Error decoding header: {err}").as_str())
+            .unwrap(),
     }
     match payload {
-        Ok(payload_str) => println!("Payload Data: {payload_str}"),
-        Err(err) => println!("Error decoding payload: {err}"),
+        Ok(payload_str) => t
+            .write_line(format!("Payload Data: {payload_str}").as_str())
+            .unwrap(),
+        Err(err) => t
+            .write_line(format!("Error decoding payload: {err}").as_str())
+            .unwrap(),
     }
 }
