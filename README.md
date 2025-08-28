@@ -6,6 +6,7 @@ A collection of common dev tools that can be used from the command line. Termina
 - Base 64 Encode
 - URL Decode
 - URL Encode
+- URL Parse
 - HTML Unescape
 - HTML Escape
 - JWT Decode
